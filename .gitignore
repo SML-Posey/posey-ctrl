@@ -4,3 +4,6 @@ dist/
 .DS_Store
 *.pyc
 tmp/
+.vscode/
+posey-data/
+data/

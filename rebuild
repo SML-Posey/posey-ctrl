@@ -1,0 +1,4 @@
+#!/bin/bash
+
+rm -fv dist/*.whl
+python setup.py bdist_wheel

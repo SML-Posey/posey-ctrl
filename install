@@ -1,0 +1,3 @@
+#!/bin/bash
+
+pip install --force-reinstall dist/*.whl

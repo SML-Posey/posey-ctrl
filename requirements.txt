@@ -1,0 +1,9 @@
+multiprocess
+dill
+numpy
+pandas
+pySerial
+jsbeautifier
+asyncio
+bokeh
+adafruit_ble
