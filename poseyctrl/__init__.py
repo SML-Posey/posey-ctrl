@@ -27,6 +27,7 @@ def main():
     from multiprocess import Process, Queue
     import queue
     import bleak
+    import datetime
 
     # from numpy.core.fromnumeric import trace
 
@@ -59,10 +60,15 @@ def main():
 
     # Configure logger.
     logging.basicConfig(
-        #filename='posey.ble.log',
+        handlers=[
+            logging.FileHandler("output.log"),
+            logging.StreamHandler()
+        ],
+        datefmt='%H:%M:%S',
         format='{name:.<15} {asctime}: [{levelname}] {message}',
         style='{', level=logging.DEBUG if args.debug else logging.INFO)
     log = getLogger("main")
+    getLogger("asyncio").setLevel(logging.CRITICAL)
 
     max_connections = 4
     if args.sensors:
@@ -73,6 +79,7 @@ def main():
 
     device_addrs = [NameToAddressMap[name] for name in device_names]
 
+    log.info(f"Start time: {datetime.datetime.now().astimezone().replace(microsecond=0).isoformat()}")
     log.info(f"Max connections: {max_connections}")
     log.info(f"  Force all: {args.all}")
     log.info(f"Device whitelist: {device_names}")
@@ -132,6 +139,11 @@ def main():
                     log.warning(f"Sensor {sensor.name} disconnected. Reconnecting...")
                     try:
                         sensor.connect()
+                    except KeyboardInterrupt:
+                        raise
+                    except bleak.exc.BleakError as e:
+                        msg = e.message if hasattr(e, 'message') else e
+                        log.warning(f"Bleak error: {msg}")
                     except:
                         log.info("Exception on connect:")
                         traceback.print_exc()
@@ -148,12 +160,8 @@ def main():
                 # If time, print statistics.
                 sensor.hil.stats.log_stats()
 
-    except queue.Empty:
-        log.warning("Empty queue.")
-
-    except bleak.exc.BleakError as e:
-        msg = e.message if hasattr(e, 'message') else e
-        log.warning(f"Blear error: {msg}")
+    except KeyboardInterrupt:
+        log.info("Keyboard interrupt, breaking.")
 
     except:
         traceback.print_exc()

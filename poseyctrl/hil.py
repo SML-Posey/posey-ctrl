@@ -3,6 +3,7 @@ import traceback
 import time
 import datetime as dt
 import logging
+import math
 
 from typing import Optional
 from multiprocess import Queue, Process
@@ -20,7 +21,9 @@ import pyposey as pyp
 class PoseyHILStats:
     def __init__(self, log, delay=3):
         self.log = log
-        self.last_update = time.time()
+        self.start_time = time.time()
+        self.last_update = self.start_time
+        self.last_timestamp = 0
         self.delay = delay
 
         self.bytes = 0
@@ -28,9 +31,10 @@ class PoseyHILStats:
         self.imu = 0
         self.ble = 0
 
-    def add_taskmain(self):
+    def add_taskmain(self, timestamp):
         self.bytes += 15
         self.taskmain += 1
+        self.last_timestamp = timestamp
 
     def add_imu(self):
         self.bytes += 77
@@ -42,13 +46,17 @@ class PoseyHILStats:
 
     def stats(self, name, N, dt, postfix='Hz'):
         Hz = N/dt
-        return f'[{name}: {Hz:5.1f}{postfix}]'
+        return f'{name}: {Hz:5.1f}{postfix}'
+
+    def runtime(self):
+        rt = time.time() - self.start_time
+        return f'{str(dt.timedelta(seconds=math.floor(rt)))} / MCU {str(dt.timedelta(seconds=math.floor(self.last_timestamp*1e-6)))}'
 
     def log_stats(self):
         now = time.time()
         dt = now - self.last_update
         if dt >= self.delay:
-            self.log.info(f'{self.stats("Main", self.taskmain, dt)} {self.stats("IMU", self.imu, dt)} {self.stats("BLE", self.ble, dt)} {self.stats("Throughput:", self.bytes, dt, postfix="bps")}')
+            self.log.info(f'Runtime: [{self.runtime()}] Rates: [{self.stats("Main+IMU", min(self.taskmain, self.imu), dt)} {self.stats("BLE", self.ble, dt, postfix="dps")} {self.stats("Throughput:", self.bytes, dt, postfix="bps")}]')
 
             self.bytes = 0
             self.taskmain = 0
@@ -81,6 +89,7 @@ class PoseyHIL:
             adv, connection, service):
         self.log = logging.getLogger(f'posey.{name}')
         self.stats = PoseyHILStats(self.log)
+        self.last_ping = 0
 
         self.adv = adv
         self.uart_conn = connection
@@ -109,7 +118,7 @@ class PoseyHIL:
         if mid == pyp.tasks.TaskMainTelemetry.message_id:
             sig = 'taskmain'
             if self.messages.taskmain.valid_checksum:
-                self.stats.add_taskmain()
+                self.stats.add_taskmain(self.messages.taskmain.message.t_start)
                 self.messages.taskmain.deserialize()
                 data = {
                     'sensor': self.name,
@@ -222,4 +231,15 @@ class PoseyHIL:
             mid = self.ml.process_next()
             if mid >= 0:
                 self.process_message(dt.datetime.now(), mid)
+
+            # This is unnecessary, but just in case we want it sometime in the future.
+            # self.keep_alive()
+
+    def keep_alive(self):
+        if self.uart_conn and self.uart_conn.connected:
+            t = time.time()
+            if (t - self.last_ping) > 1:
+                # self.log.info("Sending ping.")
+                self.last_ping = t
+                self.send(bytes("Stayin alive!\n", "utf-8"))
 
