@@ -13,17 +13,19 @@ class CSVWriterLogger:
         print(f'CSVWriter: [ERROR] {msg}')
 
 class CSVWriter:
-    def __init__(self, qin: Queue):
+    def __init__(self, qin: Queue, prefix: str =""):
         self.log = CSVWriterLogger()
 
         self.process = None
         self.qin = qin
+        self.prefix = prefix
+        self.quit = False
 
         self.files = {}
 
     def exit_gracefully(self, *args):
         self.log.info('Terminating...')
-        self.qin.put(('quit',))
+        self.quit = True
 
     def close(self):
         for id in self.files:
@@ -39,14 +41,14 @@ class CSVWriter:
             try:
                 msg = self.qin.get_nowait()
                 sig = msg[0]
-                if sig == 'quit':
+                if self.quit:
                     self.close()
                     break
 
                 else:
                     sig, t, data = msg
                     if sig not in self.files:
-                        self.files[sig] = open(f'data.{sig}.csv', 'w')
+                        self.files[sig] = open(f'{self.prefix}data.{sig}.csv', 'w')
                         self.files[sig].write('pctime,' + ','.join(data.keys()) + '\n')
                     self.files[sig].write('"' + str(t) + '",' + ','.join([str(x) for x in data.values()]) + '\n')
 
@@ -55,7 +57,6 @@ class CSVWriter:
         self.log.info('Finished loop.')
 
     def start(self):
-        self.stop()
         self.log.info('Starting process...')
         self.process = Process(target=CSVWriter.loop, args=(self,))
         self.process.start()

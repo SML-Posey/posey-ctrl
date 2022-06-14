@@ -86,7 +86,8 @@ class PoseyHIL:
     def __init__(self,
             name: str,
             qin: Queue, qout: Queue, pq: Queue,
-            adv, connection, service):
+            adv, connection, service,
+            output_raw: bool = True):
         self.log = logging.getLogger(f'posey.{name}')
         self.stats = PoseyHILStats(self.log)
         self.last_ping = 0
@@ -101,8 +102,12 @@ class PoseyHIL:
 
         self.name = name
 
-        self.raw_serial_in = open(f'{self.name}.raw.in.bin', 'wb')
-        self.raw_serial_out = open(f'{self.name}.raw.out.bin', 'wb')
+        if output_raw:
+            self.raw_serial_in = open(f'{self.name}.raw.in.bin', 'wb')
+            self.raw_serial_out = open(f'{self.name}.raw.out.bin', 'wb')
+        else:
+            self.raw_serial_in = None
+            self.raw_serial_out = None
 
         self.messages = PoseyHILReceiveMessages()
         self.ml = pyp.platform.io.MessageListener()

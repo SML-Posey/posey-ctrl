@@ -38,5 +38,7 @@ setup(
         'asyncio',
     ],
     entry_points={
-        'console_scripts': ['poseyctrl=poseyctrl.__init__:main']
+        'console_scripts': [
+            'poseyctrl=poseyctrl.__init__:main',
+            'posey-decode-bin=poseyctrl.decodebin:decodebin']
     })
