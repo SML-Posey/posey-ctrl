@@ -3,7 +3,7 @@ import os
 
 
 MODULE_PATH = os.path.dirname(os.path.abspath(__file__))
-VERSION = '1.0.0'
+VERSION = '1.1.0'
 
 NameToAddressMap = {
     # BMD-350 dev board
