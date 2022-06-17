@@ -1,5 +1,6 @@
 from logging import getLogger
 import os
+from sys import platform
 
 
 MODULE_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -7,15 +8,15 @@ VERSION = '1.1.0'
 
 NameToAddressMap = {
     # BMD-350 dev board
-    'dumbledork': '9191FDB5-E182-BE53-604C-83715F9E56BA',
+    'dumbledork': 'F8:F3:5C:7B:A9:F8' if platform != 'Darwin' else '9191FDB5-E182-BE53-604C-83715F9E56BA',
 
     # v5
-    'tangaray': '83958895-56AA-451B-7B43-146FBA93C568', # Waist - NAND
+    'tangaray': 'NA' if platform != 'Darwin' else '83958895-56AA-451B-7B43-146FBA93C568', # Waist - NAND
 
     # v6
-    'rose': 'B3E7DBCA-5975-C10E-6CD0-F3EC0A99E32C', # Waist - NOR
-    'lily': 'D5ACC31A-6F33-5688-E6B6-52E8C4EAB0C9', # Watch
-    'lilac': '4CF77840-4450-D8EF-35E3-E7DBC4192CC2'# Watch
+    'rose': 'F8:AE:63:8C:BE:9E' if platform != 'Darwin' else 'B3E7DBCA-5975-C10E-6CD0-F3EC0A99E32C', # Waist - NOR
+    'lily': 'D3:41:A2:9A:DD:B5' if platform != 'Darwin' else 'D5ACC31A-6F33-5688-E6B6-52E8C4EAB0C9', # Watch
+    'lilac': 'D2:59:79:11:94:51' if platform != 'Darwin' else '4CF77840-4450-D8EF-35E3-E7DBC4192CC2'# Watch
 }
 AddressToNameMap = {v: k for k, v in NameToAddressMap.items()}
 
