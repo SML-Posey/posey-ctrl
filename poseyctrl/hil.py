@@ -67,7 +67,7 @@ class PoseyHILStats:
 
 class PoseyHILReceiveMessages:
     def __init__(self):
-        self.taskmain = pyp.tasks.TaskMainTelemetryMessage()
+        self.taskmain = pyp.tasks.TaskTelemetryMessage()
 
         # self.command = pyp.control.CommandMessage()
 
@@ -120,7 +120,7 @@ class PoseyHIL:
         sig = None
         data = None
         send_to_pq = False
-        if mid == pyp.tasks.TaskMainTelemetry.message_id:
+        if mid == pyp.tasks.TaskTelemetry.message_id:
             sig = 'taskmain'
             if self.messages.taskmain.valid_checksum:
                 self.stats.add_taskmain(self.messages.taskmain.message.t_start)

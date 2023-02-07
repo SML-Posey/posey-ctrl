@@ -6,21 +6,6 @@ from sys import platform
 MODULE_PATH = os.path.dirname(os.path.abspath(__file__))
 VERSION = '1.1.0'
 
-NameToAddressMap = {
-    # BMD-350 dev board
-    'dumbledork': 'F8:F3:5C:7B:A9:F8' if platform != 'Darwin' else '9191FDB5-E182-BE53-604C-83715F9E56BA',
-
-    # v5
-    'tangaray': 'NA' if platform != 'Darwin' else '83958895-56AA-451B-7B43-146FBA93C568', # Waist - NAND
-
-    # v6
-    'rose': 'F8:AE:63:8C:BE:9E' if platform != 'Darwin' else 'B3E7DBCA-5975-C10E-6CD0-F3EC0A99E32C', # Waist - NOR
-    'lily': 'D3:41:A2:9A:DD:B5' if platform != 'Darwin' else 'D5ACC31A-6F33-5688-E6B6-52E8C4EAB0C9', # Watch
-    'lilac': 'D2:59:79:11:94:51' if platform != 'Darwin' else '4CF77840-4450-D8EF-35E3-E7DBC4192CC2'# Watch
-}
-AddressToNameMap = {v: k for k, v in NameToAddressMap.items()}
-
-
 def main():
     import argparse
     import logging
@@ -39,14 +24,14 @@ def main():
     from poseyctrl.sensor import PoseySensor
 
     # Process arguments.
-    device_names = list(NameToAddressMap.keys())
+    device_names = []
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-n", "--num-sensors",
         type=int,
         help="Maximum number of sensors to connect to.")
     group.add_argument("-s", "--sensors",
-        type=str, choices=device_names, nargs="+",
+        type=str, nargs="+",
         help="Specific sensors to connect to.")
     parser.add_argument("-t", "--timeout",
         type=float, default=10,
@@ -78,8 +63,6 @@ def main():
     elif args.num_sensors:
         max_connections = args.num_sensors
 
-    device_addrs = [NameToAddressMap[name] for name in device_names]
-
     log.info(f"Start time: {datetime.datetime.now().astimezone().replace(microsecond=0).isoformat()}")
     log.info(f"Max connections: {max_connections}")
     log.info(f"  Force all: {args.all}")
@@ -101,11 +84,13 @@ def main():
     for adv in ble.start_scan(Advertisement, timeout=args.timeout):
         if adv.address in all_adv:
             continue
+        if adv.complete_name is None:
+            continue
         all_adv.add(adv.address)
-        if (adv.complete_name == 'Posey Sensor') and (adv.address not in advertisements):
-            name = AddressToNameMap[adv.address.string] if adv.address.string in AddressToNameMap else 'Unknown'
+        if (adv.complete_name[:8] == 'Posey w8') and (adv.address not in advertisements):
+            name = adv.complete_name
             log.info(f"Found Posey {name} (Address: {adv.address.string})")
-            if name in device_names:
+            if (len(device_names) == 0) or (name in device_names):
                 advertisements[name] = adv
                 if len(advertisements) == max_connections:
                     log.info(f"Found {max_connections} sensors, ending scan.")
