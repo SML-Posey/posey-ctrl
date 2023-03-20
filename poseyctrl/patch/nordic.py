@@ -29,15 +29,20 @@ class UARTService(Service):
     """
 
     # pylint: disable=no-member
+    # ATW: The Adafruit library has egregiously small buffers that,
+    # because of how the class is instantiated, can't be enlarged
+    # after the fact, so we need this patch.
     uuid = VendorUUID("6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
     _server_tx = StreamOut(
         uuid=VendorUUID("6E400003-B5A3-F393-E0A9-E50E24DCCA9E"),
         timeout=1.0,
+        # buffer_size=64,
         buffer_size=1024,
     )
     _server_rx = StreamIn(
         uuid=VendorUUID("6E400002-B5A3-F393-E0A9-E50E24DCCA9E"),
         timeout=1.0,
+        # buffer_size=64,
         buffer_size=1024,
     )
 

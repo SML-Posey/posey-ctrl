@@ -40,5 +40,6 @@ setup(
     entry_points={
         'console_scripts': [
             'poseyctrl=poseyctrl.__init__:main',
-            'posey-decode-bin=poseyctrl.decodebin:decodebin']
+            'posey-decode-bin=poseyctrl.decodebin:decodebin',
+            'posey-listen=poseyctrl.apps.posey_listen:posey_listen']
     })

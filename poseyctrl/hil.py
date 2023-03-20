@@ -6,12 +6,16 @@ import logging
 import math
 
 from typing import Optional
-from multiprocess import Queue, Process
+from multiprocess import Queue
 import numpy as np
 
 from adafruit_ble import BLERadio
 from adafruit_ble.advertising.standard import Advertisement
-#from adafruit_ble.services.nordic import UARTService
+
+# from adafruit_ble.services.nordic import UARTService
+# ATW: The Adafruit library has egregiously small buffers that, because of how
+# the class is instantiated, can't be enlarged after the fact, so we need this
+# patch.
 from poseyctrl.patch.nordic import UARTService
 
 
@@ -27,21 +31,26 @@ class PoseyHILStats:
         self.delay = delay
 
         self.bytes = 0
-        self.taskmain = 0
+        self.task = 0
+        self.datasummary = 0
         self.imu = 0
         self.ble = 0
 
-    def add_taskmain(self, timestamp):
-        self.bytes += 15
-        self.taskmain += 1
+    def add_task(self, timestamp, bytes):
+        self.bytes += bytes
+        self.task += 1
         self.last_timestamp = timestamp
 
+    def add_datasummary(self):
+        self.bytes += 43 + 3
+        self.task += 1
+
     def add_imu(self):
-        self.bytes += 77
+        self.bytes += 45 + 3
         self.imu += 1
 
     def add_ble(self):
-        self.bytes += 12
+        self.bytes += 12 + 3
         self.ble += 1
 
     def stats(self, name, N, dt, postfix='Hz'):
@@ -67,17 +76,21 @@ class PoseyHILStats:
 
 class PoseyHILReceiveMessages:
     def __init__(self):
-        self.taskmain = pyp.tasks.TaskTelemetryMessage()
+        self.taskwaist = pyp.tasks.TaskWaistTelemetryMessage()
+        self.taskwatch = pyp.tasks.TaskWatchTelemetryMessage()
 
-        # self.command = pyp.control.CommandMessage()
+        self.command = pyp.control.CommandMessage()
+        self.datasummary = pyp.control.DataSummaryMessage()
 
         self.imu = pyp.platform.sensors.IMUMessage()
         self.ble = pyp.platform.sensors.BLEMessage()
 
     def register_listeners(self, ml: pyp.platform.io.MessageListener):
-        ml.add_listener(self.taskmain)
+        ml.add_listener(self.taskwatch)
+        ml.add_listener(self.taskwaist)
 
-        # ml.add_listener(self.command)
+        ml.add_listener(self.command)
+        ml.add_listener(self.datasummary)
 
         ml.add_listener(self.imu)
         ml.add_listener(self.ble)
@@ -87,7 +100,7 @@ class PoseyHIL:
             name: str,
             qin: Queue, qout: Queue, pq: Queue,
             adv, connection, service,
-            output_raw: bool = True):
+            output_raw: Optional[str] = None):
         self.log = logging.getLogger(f'posey.{name}')
         self.stats = PoseyHILStats(self.log)
         self.last_ping = 0
@@ -102,9 +115,9 @@ class PoseyHIL:
 
         self.name = name
 
-        if output_raw:
-            self.raw_serial_in = open(f'{self.name}.raw.in.bin', 'wb')
-            self.raw_serial_out = open(f'{self.name}.raw.out.bin', 'wb')
+        if output_raw is not None:
+            self.raw_serial_in = open(f'{self.output_raw}.in.bin', 'wb')
+            self.raw_serial_out = open(f'{self.output_raw}.out.bin', 'wb')
         else:
             self.raw_serial_in = None
             self.raw_serial_out = None
@@ -120,36 +133,74 @@ class PoseyHIL:
         sig = None
         data = None
         send_to_pq = False
-        if mid == pyp.tasks.TaskTelemetry.message_id:
-            sig = 'taskmain'
-            if self.messages.taskmain.valid_checksum:
-                self.stats.add_taskmain(self.messages.taskmain.message.t_start)
-                self.messages.taskmain.deserialize()
+        if mid == pyp.tasks.TaskWaistTelemetry.message_id:
+            sig = 'taskwaist'
+            if self.messages.taskwaist.valid_checksum:
+                self.stats.add_task(
+                    self.messages.taskwaist.message.t_start,
+                    24 + 3)
+                self.messages.taskwaist.deserialize()
                 data = {
                     'sensor': self.name,
-                    'counter': self.messages.taskmain.message.counter,
-                    't_start': self.messages.taskmain.message.t_start,
-                    't_end': self.messages.taskmain.message.t_end,
-                    'invalid_checksum': self.messages.taskmain.message.invalid_checksum,
-                    'missed_deadline': self.messages.taskmain.message.missed_deadline}
+                    'counter': self.messages.taskwaist.message.counter,
+                    't_start': self.messages.taskwaist.message.t_start,
+                    't_end': self.messages.taskwaist.message.t_end,
+                    'invalid_checksum': self.messages.taskwaist.message.invalid_checksum,
+                    'missed_deadline': self.messages.taskwaist.message.missed_deadline,
+                    'Vbatt': self.messages.taskwaist.message.Vbatt,
+                    'connected_devices': self.messages.taskwaist.message.connected_devices,
+                    'ble_throughput': self.messages.taskwaist.message.ble_throughput
+                }
             else:
-                self.log.error('Invalid TaskMain checkum.')
-        # elif mid == pyp.control.Command.message_id:
-        #     # If we get a command message, it must be an acknowledgement. Store
-        #     # in a queue to be retrieved later.
-        #     send_to_pq = True
-        #     sig = 'command'
-        #     if self.messages.command.valid_checksum:
-        #         self.messages.command.deserialize()
-        #         data = {
-        #             'sensor': self.name,
-        #             'command': self.messages.command.message.command,
-        #             'arg1': self.messages.command.message.arg1,
-        #             'arg2': self.messages.command.message.arg2,
-        #             'arg3': self.messages.command.message.arg3,
-        #             'ack': self.messages.command.message.ack}
-        #     else:
-        #         self.log.error('Invalid Command checkum.')
+                self.log.error('Invalid TaskWaist checkum.')
+
+        elif mid == pyp.tasks.TaskWatchTelemetry.message_id:
+            sig = 'taskwatch'
+            if self.messages.taskwatch.valid_checksum:
+                self.stats.add_task(
+                    self.messages.taskwatch.message.t_start,
+                    19 + 3)
+                self.messages.taskwatch.deserialize()
+                data = {
+                    'sensor': self.name,
+                    'counter': self.messages.taskwatch.message.counter,
+                    't_start': self.messages.taskwatch.message.t_start,
+                    't_end': self.messages.taskwatch.message.t_end,
+                    'invalid_checksum': self.messages.taskwatch.message.invalid_checksum,
+                    'missed_deadline': self.messages.taskwatch.message.missed_deadline,
+                    'Vbatt': self.messages.taskwatch.message.Vbatt
+                }
+            else:
+                self.log.error('Invalid TaskWatch checkum.')
+
+        elif mid == pyp.control.Command.message_id:
+            # If we get a command message, it must be an acknowledgement. Store
+            # in a queue to be retrieved later.
+            send_to_pq = True
+            sig = 'command'
+            if self.messages.command.valid_checksum:
+                self.messages.command.deserialize()
+                data = {
+                    'sensor': self.name,
+                    'command': self.messages.command.message.command,
+                    'payload': self.messages.command.message.payload,
+                    'ack': self.messages.command.message.ack}
+            else:
+                self.log.error('Invalid Command checkum.')
+
+        elif mid == pyp.control.DataSummary.message_id:
+            sig = 'datasummary'
+            if self.messages.datasummary.valid_checksum:
+                self.messages.datasummary.deserialize()
+                data = {
+                    'sensor': self.name,
+                    'datetime': self.messages.datasummary.message.datetime,
+                    'start_ms': self.messages.datasummary.message.start_ms,
+                    'end_ms': self.messages.datasummary.message.end_ms,
+                    'bytes': self.messages.datasummary.message.bytes}
+            else:
+                self.log.error('Invalid DataSummary checkum.')
+
         elif mid == pyp.platform.sensors.IMUData.message_id:
             sig = 'imu'
             if self.messages.imu.valid_checksum:
