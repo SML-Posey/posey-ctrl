@@ -41,5 +41,6 @@ setup(
         'console_scripts': [
             'poseyctrl=poseyctrl.__init__:main',
             'posey-decode-bin=poseyctrl.decodebin:decodebin',
-            'posey-listen=poseyctrl.apps.posey_listen:posey_listen']
+            'posey-listen=poseyctrl.apps.posey_listen:posey_listen',
+            'posey-cmd=poseyctrl.apps.posey_cmd:posey_cmd']
     })

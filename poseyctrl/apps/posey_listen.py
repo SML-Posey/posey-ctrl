@@ -10,13 +10,11 @@ import datetime as dt
 from adafruit_ble import BLERadio
 from adafruit_ble.advertising.standard import Advertisement
 
-from poseyctrl import csvw
 from poseyctrl.sensor import PoseySensor
 
 def posey_listen():
 
     # Process arguments.
-    device_names = []
     parser = argparse.ArgumentParser("posey-listen", description="Listens to a posey device.")
     parser.add_argument("sensor",
         type=str, help="Sensor to connect to.")
@@ -29,10 +27,11 @@ def posey_listen():
     args = parser.parse_args()
 
     # Configure logger.
+    nowstamp = f"posey-listen-{args.sensor}-{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}"
     logging.basicConfig(
         handlers=[
             logging.FileHandler(
-                f"posey-listen-{args.sensor}-{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.log"),
+                f"{nowstamp}.log"),
             logging.StreamHandler()
         ],
         datefmt='%H:%M:%S',
@@ -51,8 +50,6 @@ def posey_listen():
     qin = Queue()
     qout = Queue()
     pq = Queue()
-
-    csvwriter = csvw.CSVWriter(qin)
 
     # Find sensors.
     log.info(f"Scanning for Posey sensor {device_name}...")
@@ -76,7 +73,7 @@ def posey_listen():
     device_name = device_adv.complete_name
 
     log.info(f"Connecting to {device_adv.complete_name}.")
-    sensor = PoseySensor(device_name, ble, device_adv, qout, qin, pq)
+    sensor = PoseySensor(device_name, ble, device_adv, qout, qin, pq, nowstamp)
     log.info(f"Connecting to device {sensor}")
     if sensor.connect():
         log.info(" - Connected.")

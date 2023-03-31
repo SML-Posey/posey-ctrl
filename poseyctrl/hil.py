@@ -4,20 +4,11 @@ import time
 import datetime as dt
 import logging
 import math
+import os
 
 from typing import Optional
 from multiprocess import Queue
 import numpy as np
-
-from adafruit_ble import BLERadio
-from adafruit_ble.advertising.standard import Advertisement
-
-# from adafruit_ble.services.nordic import UARTService
-# ATW: The Adafruit library has egregiously small buffers that, because of how
-# the class is instantiated, can't be enlarged after the fact, so we need this
-# patch.
-from poseyctrl.patch.nordic import UARTService
-
 
 import pyposey as pyp
 
@@ -65,10 +56,11 @@ class PoseyHILStats:
         now = time.time()
         dt = now - self.last_update
         if dt >= self.delay:
-            self.log.info(f'Runtime: [{self.runtime()}] Rates: [{self.stats("Main+IMU", min(self.taskmain, self.imu), dt)} {self.stats("BLE", self.ble, dt, postfix="dps")} {self.stats("Throughput:", self.bytes, dt, postfix="bps")}]')
+            self.log.info(f'Runtime: [{self.runtime()}] Rates: [{self.stats("Main+IMU", min(self.task, self.imu), dt)} {self.stats("BLE", self.ble, dt, postfix="dps")} {self.stats("Throughput:", self.bytes, dt, postfix="bps")}]')
 
             self.bytes = 0
-            self.taskmain = 0
+            self.task = 0
+            self.datasummary = 0
             self.imu = 0
             self.ble = 0
             self.last_update = now
@@ -114,10 +106,14 @@ class PoseyHIL:
         self.pq = pq
 
         self.name = name
-
         if output_raw is not None:
-            self.raw_serial_in = open(f'{self.output_raw}.in.bin', 'wb')
-            self.raw_serial_out = open(f'{self.output_raw}.out.bin', 'wb')
+            self.output_raw = output_raw
+
+            self.raw_serial_in_fn = f'{self.output_raw}.in.bin'
+            self.raw_serial_in = open(self.raw_serial_in_fn, 'wb')
+
+            self.raw_serial_out_fn = f'{self.output_raw}.out.bin'
+            self.raw_serial_out = open(self.raw_serial_out_fn, 'wb')
         else:
             self.raw_serial_in = None
             self.raw_serial_out = None
@@ -189,12 +185,15 @@ class PoseyHIL:
                 self.log.error('Invalid Command checkum.')
 
         elif mid == pyp.control.DataSummary.message_id:
+            # If we get a data summary message, we're going to want to use it
+            # to provide information on our download.
+            send_to_pq = True
             sig = 'datasummary'
             if self.messages.datasummary.valid_checksum:
                 self.messages.datasummary.deserialize()
                 data = {
                     'sensor': self.name,
-                    'datetime': self.messages.datasummary.message.datetime,
+                    'datetime': self.messages.datasummary.message.datetime.tobytes().decode('UTF-8'),
                     'start_ms': self.messages.datasummary.message.start_ms,
                     'end_ms': self.messages.datasummary.message.end_ms,
                     'bytes': self.messages.datasummary.message.bytes}
@@ -238,8 +237,11 @@ class PoseyHIL:
                 data = {
                     'sensor': self.name,
                     'time': self.messages.ble.message.time,
-                    'addr': '{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}'.format(
-                        *self.messages.ble.message.addr[::-1]),
+                    'uuid': '{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}'.format(
+                        *self.messages.ble.message.uuid[::-1]),
+                    'major': self.messages.ble.message.major,
+                    'minor': self.messages.ble.message.minor,
+                    'power': self.messages.ble.message.power,
                     'rssi': self.messages.ble.message.rssi}
             else:
                 self.log.error('Invalid BLE checkum.')
@@ -253,7 +255,10 @@ class PoseyHIL:
 
     def send(self, cmd):
         try:
-            tx = cmd
+            if hasattr(cmd, 'buffer'):
+                tx = cmd.buffer.buffer.tobytes()
+            else:
+                tx = cmd
 
             if self.raw_serial_out is not None:
                 self.raw_serial_out.write(tx)
@@ -271,25 +276,49 @@ class PoseyHIL:
         if self.raw_serial_in is not None:
             self.raw_serial_in.close()
             self.raw_serial_in = None
+            if os.path.getsize(self.raw_serial_in_fn) == 0:
+                self.log.warning(f'Input file {self.raw_serial_in_fn} is empty, removing...')
+                os.remove(self.raw_serial_in_fn)
         if self.raw_serial_out is not None:
             self.raw_serial_out.close()
             self.raw_serial_out = None
+            if os.path.getsize(self.raw_serial_out_fn) == 0:
+                self.log.warning(f'Output file {self.raw_serial_out_fn} is empty, removing...')
+                os.remove(self.raw_serial_out_fn)
 
-    def process_uart(self):
+    def read_uart(self, size: int = -1):
+        if size < 0:
+            size = self.uart_service.in_waiting
+        data = self.uart_service.read(size)
+        if data is not None:
+            data = bytes(data)
+        return data
+
+    def process_uart(self, decode_messages=True):
+        to_read = 0
+        data = None
         if self.uart_conn and self.uart_conn.connected:
-            to_read = min(self.uart_service.in_waiting, self.ml.free)
+            if decode_messages:
+                to_read = min(self.uart_service.in_waiting, self.ml.free)
+            else:
+                to_read = self.uart_service.in_waiting
+                
             if to_read > 0:
-                data = bytes(self.uart_service.read(to_read))
-                self.ml.write(data)
-                if self.raw_serial_in is not None:
+                data = self.read_uart(to_read)
+                if (data is not None) and (self.raw_serial_in is not None):
                     self.raw_serial_in.write(data)
 
-            mid = self.ml.process_next()
-            if mid >= 0:
-                self.process_message(dt.datetime.now(), mid)
+            if decode_messages:
+                if data is not None:
+                    self.ml.write(data)
+                mid = self.ml.process_next()
+                if mid >= 0:
+                    self.process_message(dt.datetime.now(), mid)
 
             # This is unnecessary, but just in case we want it sometime in the future.
             # self.keep_alive()
+
+        return to_read
 
     def keep_alive(self):
         if self.uart_conn and self.uart_conn.connected:
