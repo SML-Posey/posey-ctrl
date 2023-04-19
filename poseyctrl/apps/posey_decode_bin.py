@@ -9,7 +9,7 @@ from poseyctrl import hil
 
 import argparse
 
-def decodebin():
+def posey_decode_bin():
     parser = argparse.ArgumentParser()
     parser.add_argument("input", type=str, help="Input bin.")
     parser.add_argument("output", type=str, default=".", nargs="?",
@@ -40,14 +40,14 @@ def decodebin():
     csvwriter = csvw.CSVWriter(qin, prefix=f"{args.prefix}.")
     sensor = hil.PoseyHIL(
         args.prefix, qout, qin, pq,
-        None, None, None, output_raw = False)
+        None, None, None, output_raw = None)
 
     try:
         print(f"Reading {args.input}...")
         csvwriter.start()
         N = len(inp)
         bytes_left = N
-        rows = {1: 0, 2: 0, 200: 0}
+        rows = {1: 0, 2: 0, 200: 0, 201: 0}
         while bytes_left > 0:
             to_read = min(bytes_left, sensor.ml.free)
             if to_read > 0:
@@ -74,6 +74,7 @@ def decodebin():
     except KeyboardInterrupt:
         print("Keyboard interrupt, stopping...")
     print("Done.")
+    csvwriter.stop_gracefully()
 
 if __name__ == "__main__":
-    decodebin()
+    posey_decode_bin()

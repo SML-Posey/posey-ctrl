@@ -26,6 +26,11 @@ class CSVWriter:
     def exit_gracefully(self, *args):
         self.log.info('Terminating...')
         self.quit = True
+    
+    def stop_gracefully(self, wait=True):
+        self.qin.put(('quit', time.time(), {}))
+        if wait:
+            self.process.join()
 
     def close(self):
         for id in self.files:
@@ -42,6 +47,10 @@ class CSVWriter:
                 msg = self.qin.get_nowait()
                 sig = msg[0]
                 if self.quit:
+                    self.close()
+                    break
+
+                elif sig == 'quit':
                     self.close()
                     break
 

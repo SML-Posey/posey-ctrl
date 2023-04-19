@@ -19,6 +19,7 @@ class PoseyHILStats:
         self.start_time = time.time()
         self.last_update = self.start_time
         self.last_timestamp = 0
+        self.last_Vbatt = 0
         self.delay = delay
 
         self.bytes = 0
@@ -27,17 +28,18 @@ class PoseyHILStats:
         self.imu = 0
         self.ble = 0
 
-    def add_task(self, timestamp, bytes):
+    def add_task(self, timestamp, bytes, Vbatt):
         self.bytes += bytes
         self.task += 1
         self.last_timestamp = timestamp
+        self.last_Vbatt = Vbatt/255.0*4.2 + 3.2
 
     def add_datasummary(self):
-        self.bytes += 43 + 3
+        self.bytes += 15 + 3
         self.task += 1
 
     def add_imu(self):
-        self.bytes += 45 + 3
+        self.bytes += 27 + 3
         self.imu += 1
 
     def add_ble(self):
@@ -56,7 +58,8 @@ class PoseyHILStats:
         now = time.time()
         dt = now - self.last_update
         if dt >= self.delay:
-            self.log.info(f'Runtime: [{self.runtime()}] Rates: [{self.stats("Main+IMU", min(self.task, self.imu), dt)} {self.stats("BLE", self.ble, dt, postfix="dps")} {self.stats("Throughput:", self.bytes, dt, postfix="bps")}]')
+            batt_pct = (self.last_Vbatt - 3.3)/(4.2 - 3.3)*100.0
+            self.log.info(f'RT: [{self.runtime()}] Batt: {self.last_Vbatt:.2f}V ({batt_pct:.0f}%) Rates: [{self.stats("T", self.task, dt)} {self.stats("I", self.imu, dt)} {self.stats("B", self.ble, dt, postfix="dps")} {self.stats("BW", self.bytes/1024.0, dt, postfix="KBps")}]')
 
             self.bytes = 0
             self.task = 0
@@ -134,18 +137,16 @@ class PoseyHIL:
             if self.messages.taskwaist.valid_checksum:
                 self.stats.add_task(
                     self.messages.taskwaist.message.t_start,
-                    24 + 3)
+                    15 + 3,
+                    self.messages.taskwaist.message.Vbatt)
                 self.messages.taskwaist.deserialize()
                 data = {
                     'sensor': self.name,
-                    'counter': self.messages.taskwaist.message.counter,
                     't_start': self.messages.taskwaist.message.t_start,
                     't_end': self.messages.taskwaist.message.t_end,
                     'invalid_checksum': self.messages.taskwaist.message.invalid_checksum,
                     'missed_deadline': self.messages.taskwaist.message.missed_deadline,
-                    'Vbatt': self.messages.taskwaist.message.Vbatt,
-                    'connected_devices': self.messages.taskwaist.message.connected_devices,
-                    'ble_throughput': self.messages.taskwaist.message.ble_throughput
+                    'Vbatt': self.messages.taskwaist.message.Vbatt
                 }
             else:
                 self.log.error('Invalid TaskWaist checkum.')
@@ -155,11 +156,11 @@ class PoseyHIL:
             if self.messages.taskwatch.valid_checksum:
                 self.stats.add_task(
                     self.messages.taskwatch.message.t_start,
-                    19 + 3)
+                    12 + 3,
+                    self.messages.taskwatch.message.Vbatt)
                 self.messages.taskwatch.deserialize()
                 data = {
                     'sensor': self.name,
-                    'counter': self.messages.taskwatch.message.counter,
                     't_start': self.messages.taskwatch.message.t_start,
                     't_end': self.messages.taskwatch.message.t_end,
                     'invalid_checksum': self.messages.taskwatch.message.invalid_checksum,
@@ -208,24 +209,14 @@ class PoseyHIL:
                 data = {
                     'sensor': self.name,
                     'time': self.messages.imu.message.time,
-                    'An': self.messages.imu.message.An,
-                    # 'Gn': self.messages.imu.message.Gn,
-                    # 'Mn': self.messages.imu.message.Mn,
-                    'Qn': self.messages.imu.message.Qn,
                     'Ax': self.messages.imu.message.Ax,
                     'Ay': self.messages.imu.message.Ay,
                     'Az': self.messages.imu.message.Az,
-                    # 'Gx': self.messages.imu.message.Gx,
-                    # 'Gy': self.messages.imu.message.Gy,
-                    # 'Gz': self.messages.imu.message.Gz,
-                    # 'Mx': self.messages.imu.message.Mx,
-                    # 'My': self.messages.imu.message.My,
-                    # 'Mz': self.messages.imu.message.Mz,
                     'Qi': self.messages.imu.message.Qi,
                     'Qj': self.messages.imu.message.Qj,
                     'Qk': self.messages.imu.message.Qk,
-                    'Qr': self.messages.imu.message.Qr,
-                    'Qacc': self.messages.imu.message.Qacc}
+                    'Qr': self.messages.imu.message.Qr
+                }
             else:
                 self.log.error('Invalid IMU checkum.')
 
@@ -319,6 +310,35 @@ class PoseyHIL:
             # self.keep_alive()
 
         return to_read
+
+    def decode_buffer(self, buffer):
+        try:
+            N = len(buffer)
+            bytes_left = N
+            while bytes_left > 0:
+                to_read = min(bytes_left, self.ml.free)
+                if to_read > 0:
+                    si = N - bytes_left
+                    ei = si + to_read
+                    data = bytes(buffer[si:ei])
+                    self.ml.write(data)
+                    bytes_left -= to_read
+
+                while True:
+                    mid = self.ml.process_next()
+                    if mid >= 0:
+                        self.process_message(dt.datetime.now(), mid)
+                    else:
+                        break
+            self.log.info("Dumping to CSV, this may take a while...")
+            iter = 0
+            while not self.qin.empty():
+                iter += 1
+                if (iter % 30) == 0:
+                    self.log.info(" - Still waiting for queue to empty...")
+                time.sleep(1)
+        except KeyboardInterrupt:
+            self.log.info("Keyboard interrupt, stopping...")
 
     def keep_alive(self):
         if self.uart_conn and self.uart_conn.connected:

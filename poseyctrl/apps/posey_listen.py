@@ -24,16 +24,23 @@ def posey_listen():
     parser.add_argument("-d", "--debug",
         action="store_true", default=False,
         help="Enable debug logging.")
+    parser.add_argument("-l", "--log",
+        action="store_true", default=False,
+        help="Output log to file.")
+    parser.add_argument("-r", "--min-rssi",
+        type=float, default=-100,
+        help="Minimum device RSSI to connect to.")
     args = parser.parse_args()
 
     # Configure logger.
-    nowstamp = f"posey-listen-{args.sensor}-{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    handlers = [logging.StreamHandler()]
+    dtnow = dt.datetime.now().strftime('%Y%m%d_%H%M%S')
+    nowstamp = f"{dtnow}-posey-extract"
+    nowstamp = f"posey-listen-{args.sensor}-{dtnow}"
+    if args.log:
+        handlers.append(logging.FileHandler(f"{nowstamp}.log"))
     logging.basicConfig(
-        handlers=[
-            logging.FileHandler(
-                f"{nowstamp}.log"),
-            logging.StreamHandler()
-        ],
+        handlers=handlers,
         datefmt='%H:%M:%S',
         format='{name:.<15} {asctime}: [{levelname}] {message}',
         style='{', level=logging.DEBUG if args.debug else logging.INFO)
@@ -55,7 +62,7 @@ def posey_listen():
     log.info(f"Scanning for Posey sensor {device_name}...")
     ble = BLERadio()
     device_adv = None
-    for adv in ble.start_scan(Advertisement, timeout=args.timeout):
+    for adv in ble.start_scan(Advertisement, timeout=args.timeout, minimum_rssi=args.min_rssi):
         if adv.complete_name is None:
             continue
         cn = adv.complete_name.lower()

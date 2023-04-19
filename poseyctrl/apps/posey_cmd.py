@@ -37,17 +37,19 @@ def posey_cmd():
     parser.add_argument("-d", "--debug",
         action="store_true", default=False,
         help="Enable debug logging.")
+    parser.add_argument("-l", "--log",
+        action="store_true", default=False,
+        help="Output log to file.")
     args = parser.parse_args()
 
     # Configure logger.
     dtnow = dt.datetime.now().strftime('%Y%m%d_%H%M%S')
     nowstamp = f"{dtnow}-posey-cmd-{args.sensor}-{args.command}"
+    handlers = [logging.StreamHandler()]
+    if args.log:
+        handlers.append(logging.FileHandler(f"{nowstamp}.log"))
     logging.basicConfig(
-        handlers=[
-            logging.FileHandler(
-                f"{nowstamp}.log"),
-            logging.StreamHandler()
-        ],
+        handlers=handlers,
         datefmt='%H:%M:%S',
         format='{name:.<15} {asctime}: [{levelname}] {message}',
         style='{', level=logging.DEBUG if args.debug else logging.INFO)
@@ -192,11 +194,11 @@ def posey_cmd():
             dt.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z %z").encode('UTF-8'),
             dtype='u1')
         expected_ack = MessageAck.Working
-        log.info("Data recording will start after flash erase. This may take up to a minute.")
+        log.info("Data recording will start after flash erase. This may take up to a few minutes.")
     elif args.command == 'flasherase':
         cmd.message.command = CommandType.FullFlashErase
         expected_ack = MessageAck.Working
-        log.info("A full flash erase may take up to a minute.")
+        log.info("A full flash erase may take up to a few minutes (typical 2m30s).")
     elif (args.command == 'stoprecording'):
         cmd.message.command = CommandType.StopCollecting
     elif (args.command == 'download') or (args.command == 'datasummary'):
@@ -215,6 +217,11 @@ def posey_cmd():
         data = wait_for_ack()
         if data['ack'] != MessageAck.OK:
             log.error(f"Unexpected ack in response to flash erase: 0x{data['ack']:02x}")
+    elif args.command == 'startrecording':
+        log.info('Waiting for acknowledgement that recording started...')
+        data = wait_for_ack()
+        if data['ack'] != MessageAck.OK:
+            log.error(f"Unexpected ack in response to start recording: 0x{data['ack']:02x}")
     elif args.command == 'datasummary':
         data_summary = wait_for_datasummary()
         if data_summary is None:
