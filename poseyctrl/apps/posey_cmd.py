@@ -20,6 +20,18 @@ from poseyctrl.sensor import PoseySensor
 from pyposey import MessageAck
 from pyposey.control import CommandType, CommandMessage
 
+
+def confirm():
+    """
+    Ask user to enter Y or N (case-insensitive).
+    :return: True if the answer is Y.
+    :rtype: bool
+    """
+    answer = ""
+    while answer not in ["y", "n"]:
+        answer = input("Continue? [Y/N]? ").lower()
+    return answer == "y"
+
 def posey_cmd():
 
     # Process arguments.
@@ -40,6 +52,9 @@ def posey_cmd():
     parser.add_argument("-l", "--log",
         action="store_true", default=False,
         help="Output log to file.")
+    parser.add_argument("-f", "--force",
+        action="store_true", default=False,
+        help="Force command without confirmation.")
     args = parser.parse_args()
 
     # Configure logger.
@@ -66,6 +81,38 @@ def posey_cmd():
     qin = Queue()
     qout = Queue()
     pq = Queue()
+
+    # Confirmation.
+    if not args.force:
+        if args.command == "flasherase":
+            log.warning("This will erase all data on the device!")
+            if not confirm():
+                log.info("Aborting.")
+                return
+        elif args.command == "download":
+            log.warning("This will stop recording to download data!")
+            log.info("If you haven't already stopped recording, you should do") 
+            log.info("that instead, otherwise the end timestamp is sometimes invalid.")
+            if not confirm():
+                log.info("Aborting.")
+                return
+        elif args.command == "startrecording":
+            log.warning("Starting a new recording will delete any existing data!")
+            log.info("You may want to download the existing data first.")
+            if not confirm():
+                log.info("Aborting.")
+                return
+        elif args.command == "stoprecording":
+            log.warning("Are you sure you want to stop recording?")
+            if not confirm():
+                log.info("Aborting.")
+                return
+        elif args.command == "reboot":
+            log.warning("This will stop recording and invalidate the end timestamp!")
+            log.info("If the device is recording stop it first.")
+            if not confirm():
+                log.info("Aborting.")
+                return
 
     # Find sensors.
     log.info(f"Scanning for Posey sensor {device_name}...")
