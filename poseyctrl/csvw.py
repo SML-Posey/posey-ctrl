@@ -4,16 +4,20 @@ import signal
 
 from multiprocess import Queue, Process
 
+
 class CSVWriterLogger:
     def info(self, msg):
-        print(f'CSVWriter: [INFO] {msg}')
+        print(f"CSVWriter: [INFO] {msg}")
+
     def warning(self, msg):
-        print(f'CSVWriter: [WARNING] {msg}')
+        print(f"CSVWriter: [WARNING] {msg}")
+
     def error(self, msg):
-        print(f'CSVWriter: [ERROR] {msg}')
+        print(f"CSVWriter: [ERROR] {msg}")
+
 
 class CSVWriter:
-    def __init__(self, qin: Queue, prefix: str =""):
+    def __init__(self, qin: Queue, prefix: str = ""):
         self.log = CSVWriterLogger()
 
         self.process = None
@@ -24,11 +28,11 @@ class CSVWriter:
         self.files = {}
 
     def exit_gracefully(self, *args):
-        self.log.info('Terminating...')
+        self.log.info("Terminating...")
         self.quit = True
-    
+
     def stop_gracefully(self, wait=True):
-        self.qin.put(('quit', time.time(), {}))
+        self.qin.put(("quit", time.time(), {}))
         if wait:
             self.process.join()
 
@@ -50,34 +54,40 @@ class CSVWriter:
                     self.close()
                     break
 
-                elif sig == 'quit':
+                elif sig == "quit":
                     self.close()
                     break
 
                 else:
                     sig, t, data = msg
                     if sig not in self.files:
-                        self.files[sig] = open(f'{self.prefix}data.{sig}.csv', 'w')
-                        self.files[sig].write('pctime,' + ','.join(data.keys()) + '\n')
-                    self.files[sig].write('"' + str(t) + '",' + ','.join([str(x) for x in data.values()]) + '\n')
+                        self.files[sig] = open(f"{self.prefix}data.{sig}.csv", "w")
+                        self.files[sig].write("pctime," + ",".join(data.keys()) + "\n")
+                    self.files[sig].write(
+                        '"'
+                        + str(t)
+                        + '",'
+                        + ",".join([str(x) for x in data.values()])
+                        + "\n"
+                    )
 
             except queue.Empty:
                 time.sleep(1)
-        self.log.info('Finished loop.')
+        self.log.info("Finished loop.")
 
     def start(self):
-        self.log.info('Starting process...')
+        self.log.info("Starting process...")
         self.process = Process(target=CSVWriter.loop, args=(self,))
         self.process.start()
-        self.log.info('Returning control.')
+        self.log.info("Returning control.")
 
     def stop(self):
         if self.process is not None and self.process.is_alive():
-            self.log.info('Stopping process...')
+            self.log.info("Stopping process...")
             self.process.terminate()
-            self.log.info('Joining...')
+            self.log.info("Joining...")
             self.process.join(1)
             self.process = None
-            self.log.info('Shutdown complete')
+            self.log.info("Shutdown complete")
         else:
             self.process = None

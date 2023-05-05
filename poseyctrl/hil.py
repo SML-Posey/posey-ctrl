@@ -32,7 +32,7 @@ class PoseyHILStats:
         self.bytes += bytes
         self.task += 1
         self.last_timestamp = timestamp
-        self.last_Vbatt = Vbatt/255.0*4.2 + 3.2
+        self.last_Vbatt = Vbatt / 255.0 * 4.2 + 3.2
 
     def add_datasummary(self):
         self.bytes += 15 + 3
@@ -46,20 +46,22 @@ class PoseyHILStats:
         self.bytes += 12 + 3
         self.ble += 1
 
-    def stats(self, name, N, dt, postfix='Hz'):
-        Hz = N/dt
-        return f'{name}: {Hz:5.1f}{postfix}'
+    def stats(self, name, N, dt, postfix="Hz"):
+        Hz = N / dt
+        return f"{name}: {Hz:5.1f}{postfix}"
 
     def runtime(self):
         rt = time.time() - self.start_time
-        return f'{str(dt.timedelta(seconds=math.floor(rt)))} / MCU {str(dt.timedelta(seconds=math.floor(self.last_timestamp*1e-6)))}'
+        return f"{str(dt.timedelta(seconds=math.floor(rt)))} / MCU {str(dt.timedelta(seconds=math.floor(self.last_timestamp*1e-6)))}"
 
     def log_stats(self):
         now = time.time()
         dt = now - self.last_update
         if dt >= self.delay:
-            batt_pct = (self.last_Vbatt - 3.3)/(4.2 - 3.3)*100.0
-            self.log.info(f'RT: [{self.runtime()}] Batt: {self.last_Vbatt:.2f}V ({batt_pct:.0f}%) Rates: [{self.stats("T", self.task, dt)} {self.stats("I", self.imu, dt)} {self.stats("B", self.ble, dt, postfix="dps")} {self.stats("BW", self.bytes/1024.0, dt, postfix="KBps")}]')
+            batt_pct = (self.last_Vbatt - 3.3) / (4.2 - 3.3) * 100.0
+            self.log.info(
+                f'RT: [{self.runtime()}] Batt: {self.last_Vbatt:.2f}V ({batt_pct:.0f}%) Rates: [{self.stats("T", self.task, dt)} {self.stats("I", self.imu, dt)} {self.stats("B", self.ble, dt, postfix="dps")} {self.stats("BW", self.bytes/1024.0, dt, postfix="KBps")}]'
+            )
 
             self.bytes = 0
             self.task = 0
@@ -90,13 +92,20 @@ class PoseyHILReceiveMessages:
         ml.add_listener(self.imu)
         ml.add_listener(self.ble)
 
+
 class PoseyHIL:
-    def __init__(self,
-            name: str,
-            qin: Queue, qout: Queue, pq: Queue,
-            adv, connection, service,
-            output_raw: Optional[str] = None):
-        self.log = logging.getLogger(f'posey.{name}')
+    def __init__(
+        self,
+        name: str,
+        qin: Queue,
+        qout: Queue,
+        pq: Queue,
+        adv,
+        connection,
+        service,
+        output_raw: Optional[str] = None,
+    ):
+        self.log = logging.getLogger(f"posey.{name}")
         self.stats = PoseyHILStats(self.log)
         self.last_ping = 0
 
@@ -112,11 +121,11 @@ class PoseyHIL:
         if output_raw is not None:
             self.output_raw = output_raw
 
-            self.raw_serial_in_fn = f'{self.output_raw}.in.bin'
-            self.raw_serial_in = open(self.raw_serial_in_fn, 'wb')
+            self.raw_serial_in_fn = f"{self.output_raw}.in.bin"
+            self.raw_serial_in = open(self.raw_serial_in_fn, "wb")
 
-            self.raw_serial_out_fn = f'{self.output_raw}.out.bin'
-            self.raw_serial_out = open(self.raw_serial_out_fn, 'wb')
+            self.raw_serial_out_fn = f"{self.output_raw}.out.bin"
+            self.raw_serial_out = open(self.raw_serial_out_fn, "wb")
         else:
             self.raw_serial_in = None
             self.raw_serial_out = None
@@ -133,111 +142,119 @@ class PoseyHIL:
         data = None
         send_to_pq = False
         if mid == pyp.tasks.TaskWaistTelemetry.message_id:
-            sig = 'taskwaist'
+            sig = "taskwaist"
             if self.messages.taskwaist.valid_checksum:
                 self.stats.add_task(
                     self.messages.taskwaist.message.t_start,
                     15 + 3,
-                    self.messages.taskwaist.message.Vbatt)
+                    self.messages.taskwaist.message.Vbatt,
+                )
                 self.messages.taskwaist.deserialize()
                 data = {
-                    'sensor': self.name,
-                    't_start': self.messages.taskwaist.message.t_start,
-                    't_end': self.messages.taskwaist.message.t_end,
-                    'invalid_checksum': self.messages.taskwaist.message.invalid_checksum,
-                    'missed_deadline': self.messages.taskwaist.message.missed_deadline,
-                    'Vbatt': self.messages.taskwaist.message.Vbatt
+                    "sensor": self.name,
+                    "t_start": self.messages.taskwaist.message.t_start,
+                    "t_end": self.messages.taskwaist.message.t_end,
+                    "invalid_checksum": self.messages.taskwaist.message.invalid_checksum,
+                    "missed_deadline": self.messages.taskwaist.message.missed_deadline,
+                    "Vbatt": self.messages.taskwaist.message.Vbatt,
                 }
             else:
-                self.log.error('Invalid TaskWaist checkum.')
+                self.log.error("Invalid TaskWaist checkum.")
 
         elif mid == pyp.tasks.TaskWatchTelemetry.message_id:
-            sig = 'taskwatch'
+            sig = "taskwatch"
             if self.messages.taskwatch.valid_checksum:
                 self.stats.add_task(
                     self.messages.taskwatch.message.t_start,
                     12 + 3,
-                    self.messages.taskwatch.message.Vbatt)
+                    self.messages.taskwatch.message.Vbatt,
+                )
                 self.messages.taskwatch.deserialize()
                 data = {
-                    'sensor': self.name,
-                    't_start': self.messages.taskwatch.message.t_start,
-                    't_end': self.messages.taskwatch.message.t_end,
-                    'invalid_checksum': self.messages.taskwatch.message.invalid_checksum,
-                    'missed_deadline': self.messages.taskwatch.message.missed_deadline,
-                    'Vbatt': self.messages.taskwatch.message.Vbatt
+                    "sensor": self.name,
+                    "t_start": self.messages.taskwatch.message.t_start,
+                    "t_end": self.messages.taskwatch.message.t_end,
+                    "invalid_checksum": self.messages.taskwatch.message.invalid_checksum,
+                    "missed_deadline": self.messages.taskwatch.message.missed_deadline,
+                    "Vbatt": self.messages.taskwatch.message.Vbatt,
                 }
             else:
-                self.log.error('Invalid TaskWatch checkum.')
+                self.log.error("Invalid TaskWatch checkum.")
 
         elif mid == pyp.control.Command.message_id:
             # If we get a command message, it must be an acknowledgement. Store
             # in a queue to be retrieved later.
             send_to_pq = True
-            sig = 'command'
+            sig = "command"
             if self.messages.command.valid_checksum:
                 self.messages.command.deserialize()
                 data = {
-                    'sensor': self.name,
-                    'command': self.messages.command.message.command,
-                    'payload': self.messages.command.message.payload,
-                    'ack': self.messages.command.message.ack}
+                    "sensor": self.name,
+                    "command": self.messages.command.message.command,
+                    "payload": self.messages.command.message.payload,
+                    "ack": self.messages.command.message.ack,
+                }
             else:
-                self.log.error('Invalid Command checkum.')
+                self.log.error("Invalid Command checkum.")
 
         elif mid == pyp.control.DataSummary.message_id:
             # If we get a data summary message, we're going to want to use it
             # to provide information on our download.
             send_to_pq = True
-            sig = 'datasummary'
+            sig = "datasummary"
             if self.messages.datasummary.valid_checksum:
                 self.messages.datasummary.deserialize()
                 data = {
-                    'sensor': self.name,
-                    'datetime': self.messages.datasummary.message.datetime.tobytes().decode('UTF-8'),
-                    'start_ms': self.messages.datasummary.message.start_ms,
-                    'end_ms': self.messages.datasummary.message.end_ms,
-                    'bytes': self.messages.datasummary.message.bytes}
+                    "sensor": self.name,
+                    "datetime": self.messages.datasummary.message.datetime.tobytes().decode(
+                        "UTF-8"
+                    ),
+                    "start_ms": self.messages.datasummary.message.start_ms,
+                    "end_ms": self.messages.datasummary.message.end_ms,
+                    "bytes": self.messages.datasummary.message.bytes,
+                }
             else:
-                self.log.error('Invalid DataSummary checkum.')
+                self.log.error("Invalid DataSummary checkum.")
 
         elif mid == pyp.platform.sensors.IMUData.message_id:
-            sig = 'imu'
+            sig = "imu"
             if self.messages.imu.valid_checksum:
                 self.stats.add_imu()
                 self.messages.imu.deserialize()
                 data = {
-                    'sensor': self.name,
-                    'time': self.messages.imu.message.time,
-                    'Ax': self.messages.imu.message.Ax,
-                    'Ay': self.messages.imu.message.Ay,
-                    'Az': self.messages.imu.message.Az,
-                    'Qi': self.messages.imu.message.Qi,
-                    'Qj': self.messages.imu.message.Qj,
-                    'Qk': self.messages.imu.message.Qk,
-                    'Qr': self.messages.imu.message.Qr
+                    "sensor": self.name,
+                    "time": self.messages.imu.message.time,
+                    "Ax": self.messages.imu.message.Ax,
+                    "Ay": self.messages.imu.message.Ay,
+                    "Az": self.messages.imu.message.Az,
+                    "Qi": self.messages.imu.message.Qi,
+                    "Qj": self.messages.imu.message.Qj,
+                    "Qk": self.messages.imu.message.Qk,
+                    "Qr": self.messages.imu.message.Qr,
                 }
             else:
-                self.log.error('Invalid IMU checkum.')
+                self.log.error("Invalid IMU checkum.")
 
         elif mid == pyp.platform.sensors.BLEData.message_id:
-            sig = 'ble'
+            sig = "ble"
             if self.messages.ble.valid_checksum:
                 self.stats.add_ble()
                 self.messages.ble.deserialize()
                 data = {
-                    'sensor': self.name,
-                    'time': self.messages.ble.message.time,
-                    'uuid': '{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}'.format(
-                        *self.messages.ble.message.uuid[::-1]),
-                    'major': self.messages.ble.message.major,
-                    'minor': self.messages.ble.message.minor,
-                    'power': self.messages.ble.message.power,
-                    'rssi': self.messages.ble.message.rssi}
+                    "sensor": self.name,
+                    "time": self.messages.ble.message.time,
+                    "uuid": "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}".format(
+                        *self.messages.ble.message.uuid[::-1]
+                    ),
+                    "major": self.messages.ble.message.major,
+                    "minor": self.messages.ble.message.minor,
+                    "power": self.messages.ble.message.power,
+                    "rssi": self.messages.ble.message.rssi,
+                }
             else:
-                self.log.error('Invalid BLE checkum.')
+                self.log.error("Invalid BLE checkum.")
         else:
-            self.log.error(f'Invalid message ID: {mid}')
+            self.log.error(f"Invalid message ID: {mid}")
 
         if sig is not None:
             self.qout.put((sig, time, data))
@@ -246,7 +263,7 @@ class PoseyHIL:
 
     def send(self, cmd):
         try:
-            if hasattr(cmd, 'buffer'):
+            if hasattr(cmd, "buffer"):
                 tx = cmd.buffer.buffer.tobytes()
             else:
                 tx = cmd
@@ -259,7 +276,7 @@ class PoseyHIL:
 
             return True
         except:
-            self.log.error('Sending failed')
+            self.log.error("Sending failed")
             self.log.error(traceback.format_exc())
             return False
 
@@ -268,13 +285,17 @@ class PoseyHIL:
             self.raw_serial_in.close()
             self.raw_serial_in = None
             if os.path.getsize(self.raw_serial_in_fn) == 0:
-                self.log.warning(f'Input file {self.raw_serial_in_fn} is empty, removing...')
+                self.log.warning(
+                    f"Input file {self.raw_serial_in_fn} is empty, removing..."
+                )
                 os.remove(self.raw_serial_in_fn)
         if self.raw_serial_out is not None:
             self.raw_serial_out.close()
             self.raw_serial_out = None
             if os.path.getsize(self.raw_serial_out_fn) == 0:
-                self.log.warning(f'Output file {self.raw_serial_out_fn} is empty, removing...')
+                self.log.warning(
+                    f"Output file {self.raw_serial_out_fn} is empty, removing..."
+                )
                 os.remove(self.raw_serial_out_fn)
 
     def read_uart(self, size: int = -1):
@@ -293,7 +314,7 @@ class PoseyHIL:
                 to_read = min(self.uart_service.in_waiting, self.ml.free)
             else:
                 to_read = self.uart_service.in_waiting
-                
+
             if to_read > 0:
                 data = self.read_uart(to_read)
                 if (data is not None) and (self.raw_serial_in is not None):
@@ -347,4 +368,3 @@ class PoseyHIL:
                 # self.log.info("Sending ping.")
                 self.last_ping = t
                 self.send(bytes("Stayin alive!\n", "utf-8"))
-

@@ -3,21 +3,21 @@ poseyctrl.apps
 
 .. automodule:: poseyctrl.apps
 
-   
-   
-   
 
-   
-   
-   
 
-   
-   
-   
 
-   
-   
-   
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -32,4 +32,3 @@ poseyctrl.apps
    poseyctrl.apps.posey_extract
    poseyctrl.apps.posey_listen
    poseyctrl.apps.posey_sniffer
-

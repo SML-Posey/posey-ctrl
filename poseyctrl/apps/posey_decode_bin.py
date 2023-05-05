@@ -9,13 +9,14 @@ from poseyctrl import hil
 
 import argparse
 
+
 def posey_decode_bin():
     parser = argparse.ArgumentParser()
     parser.add_argument("input", type=str, help="Input bin.")
-    parser.add_argument("output", type=str, default=".", nargs="?",
-        help="Output directory.")
-    parser.add_argument("-p", "--prefix", type=str, default=None,
-        help="Output prefix.")
+    parser.add_argument(
+        "output", type=str, default=".", nargs="?", help="Output directory."
+    )
+    parser.add_argument("-p", "--prefix", type=str, default=None, help="Output prefix.")
     args = parser.parse_args()
 
     if not os.path.isfile(args.input):
@@ -23,14 +24,16 @@ def posey_decode_bin():
     if not os.path.isdir(args.output):
         print(f"Error: output directory does not exist! -> {args.output}")
     if args.prefix is None:
-        args.prefix = os.path.basename(args.input) \
-            .replace(".raw", "") \
-            .replace(".in", "") \
-            .replace(".out", "") \
+        args.prefix = (
+            os.path.basename(args.input)
+            .replace(".raw", "")
+            .replace(".in", "")
+            .replace(".out", "")
             .replace(".bin", "")
+        )
 
     print(f"Processing {args.input} -> {args.output}/{args.prefix}.*")
-    inp = open(args.input, 'rb').read()
+    inp = open(args.input, "rb").read()
     os.chdir(args.output)
 
     qin = Queue()
@@ -38,9 +41,7 @@ def posey_decode_bin():
     pq = Queue()
 
     csvwriter = csvw.CSVWriter(qin, prefix=f"{args.prefix}.")
-    sensor = hil.PoseyHIL(
-        args.prefix, qout, qin, pq,
-        None, None, None, output_raw = None)
+    sensor = hil.PoseyHIL(args.prefix, qout, qin, pq, None, None, None, output_raw=None)
 
     try:
         print(f"Reading {args.input}...")
@@ -75,6 +76,7 @@ def posey_decode_bin():
         print("Keyboard interrupt, stopping...")
     print("Done.")
     csvwriter.stop_gracefully()
+
 
 if __name__ == "__main__":
     posey_decode_bin()

@@ -1,6 +1,6 @@
 # NOTE: We need a patched UARTService class with a larger buffer. The default
 # is tiny and does not work when trying to send large packets.
-#from adafruit_ble.services.nordic import UARTService
+# from adafruit_ble.services.nordic import UARTService
 # ATW: The Adafruit library has egregiously small buffers that, because of how
 # the class is instantiated, can't be enlarged after the fact, so we need this
 # patch.
@@ -16,10 +16,8 @@ class PoseySensor:
         self.connection = None
         self.service = None
         self.hil = hil.PoseyHIL(
-            name,
-            qout, qin, pq,
-            advertisement, None, None,
-            nowstamp)
+            name, qout, qin, pq, advertisement, None, None, nowstamp
+        )
 
     def disconnect(self):
         if (self.connection is not None) and (self.connection.connected):
@@ -46,7 +44,7 @@ class PoseySensor:
         return self.connection and self.connection.connected
 
     def __str__(self) -> str:
-        return f'{self.name} <{self.advertisement.address.string}>'
+        return f"{self.name} <{self.advertisement.address.string}>"
 
     def __repr__(self) -> str:
         return self.__str__(self)

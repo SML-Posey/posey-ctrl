@@ -3,21 +3,21 @@ poseyctrl.patch
 
 .. automodule:: poseyctrl.patch
 
-   
-   
-   
 
-   
-   
-   
 
-   
-   
-   
 
-   
-   
-   
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -28,4 +28,3 @@ poseyctrl.patch
    :recursive:
 
    poseyctrl.patch.nordic
-

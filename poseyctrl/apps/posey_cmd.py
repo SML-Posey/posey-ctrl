@@ -35,44 +35,70 @@ def posey_cmd():
 
     # Process arguments.
     parser = argparse.ArgumentParser(
-        "posey-cmd",
-        description="Send a command to a posey hub device.")
-    parser.add_argument("sensor",
-        type=str, help="Sensor to connect to.")
-    parser.add_argument("command",
-        type=str, help="Command to issue.",
-        choices=["noop", "reboot", "startrecording", "stoprecording", "datasummary", "download", "flasherase"])
-    parser.add_argument("-t", "--timeout",
-        type=float, default=10,
-        help="Timeout (seconds) to scan for BLE sensor devices.")
-    parser.add_argument("-d", "--debug",
-        action="store_true", default=False,
-        help="Enable debug logging.")
-    parser.add_argument("-l", "--log",
-        action="store_true", default=False,
-        help="Output log to file.")
-    parser.add_argument("-f", "--force",
-        action="store_true", default=False,
-        help="Force command without confirmation.")
+        "posey-cmd", description="Send a command to a posey hub device."
+    )
+    parser.add_argument("sensor", type=str, help="Sensor to connect to.")
+    parser.add_argument(
+        "command",
+        type=str,
+        help="Command to issue.",
+        choices=[
+            "noop",
+            "reboot",
+            "startrecording",
+            "stoprecording",
+            "datasummary",
+            "download",
+            "flasherase",
+        ],
+    )
+    parser.add_argument(
+        "-t",
+        "--timeout",
+        type=float,
+        default=10,
+        help="Timeout (seconds) to scan for BLE sensor devices.",
+    )
+    parser.add_argument(
+        "-d",
+        "--debug",
+        action="store_true",
+        default=False,
+        help="Enable debug logging.",
+    )
+    parser.add_argument(
+        "-l", "--log", action="store_true", default=False, help="Output log to file."
+    )
+    parser.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        default=False,
+        help="Force command without confirmation.",
+    )
     args = parser.parse_args()
 
     # Configure logger.
-    dtnow = dt.datetime.now().strftime('%Y%m%d_%H%M%S')
+    dtnow = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
     nowstamp = f"{dtnow}-posey-cmd-{args.sensor}-{args.command}"
     handlers = [logging.StreamHandler()]
     if args.log:
         handlers.append(logging.FileHandler(f"{nowstamp}.log"))
     logging.basicConfig(
         handlers=handlers,
-        datefmt='%H:%M:%S',
-        format='{name:.<15} {asctime}: [{levelname}] {message}',
-        style='{', level=logging.DEBUG if args.debug else logging.INFO)
+        datefmt="%H:%M:%S",
+        format="{name:.<15} {asctime}: [{levelname}] {message}",
+        style="{",
+        level=logging.DEBUG if args.debug else logging.INFO,
+    )
     log = getLogger("main")
     getLogger("asyncio").setLevel(logging.CRITICAL)
 
     device_name = args.sensor
 
-    log.info(f"Start time: {dt.datetime.now().astimezone().replace(microsecond=0).isoformat()}")
+    log.info(
+        f"Start time: {dt.datetime.now().astimezone().replace(microsecond=0).isoformat()}"
+    )
     log.info(f"Sensor: {device_name}")
     log.info(f"Scan timeout: {args.timeout}")
 
@@ -90,7 +116,7 @@ def posey_cmd():
                 return
         elif args.command == "download":
             log.warning("This will stop recording to download data!")
-            log.info("If you haven't already stopped recording, you should do") 
+            log.info("If you haven't already stopped recording, you should do")
             log.info("that instead, otherwise the end timestamp is sometimes invalid.")
             if not confirm():
                 log.info("Aborting.")
@@ -127,11 +153,11 @@ def posey_cmd():
             device_adv = adv
             ble.stop_scan()
             break
-    
+
     if device_adv is None:
         log.error("Device not found!")
         raise RuntimeError("Could not find Posey sensor!")
-    
+
     device_name = device_adv.complete_name
 
     log.info(f"Connecting to {device_adv.complete_name}.")
@@ -151,7 +177,7 @@ def posey_cmd():
         while True:
             try:
                 (sig, _, data) = pq.get_nowait()
-                if sig == 'command':
+                if sig == "command":
                     log.info(f"Found ack: 0x{data['ack']:02x}")
                     return data
                 if (timeout != None) and ((time.time() - t0) > timeout):
@@ -172,11 +198,10 @@ def posey_cmd():
         while True:
             try:
                 (sig, sig_time, data) = pq.get_nowait()
-                if sig == 'datasummary':
+                if sig == "datasummary":
                     data_summary = data
                     log.info("Got DataSummary message:")
-                    log.info(json.dumps(
-                        data_summary, indent=4))
+                    log.info(json.dumps(data_summary, indent=4))
                     return data_summary
                 if (timeout != None) and ((time.time() - t0) > timeout):
                     log.error("Timeout while waiting for ack!")
@@ -189,7 +214,7 @@ def posey_cmd():
 
     def wait_for_download(buffer):
         bytes = len(buffer)
-        log.info("Waiting for %.2f MB...", bytes/1024.0/1024.0)
+        log.info("Waiting for %.2f MB...", bytes / 1024.0 / 1024.0)
         bytes_left = bytes
         t0 = time.time()
         tu = t0
@@ -204,20 +229,22 @@ def posey_cmd():
                 de = di + data_len
                 if de > bytes:
                     de = bytes
-                    data = data[:(de - di)]
-                buffer[di:de] = np.frombuffer(data, 'u1')
+                    data = data[: (de - di)]
+                buffer[di:de] = np.frombuffer(data, "u1")
                 di = de
             else:
                 data_len = 0
 
-            dt = 1.0*(time.time() - tu)
+            dt = 1.0 * (time.time() - tu)
             if (dt > 10) or (bytes_left <= 0):
                 bytes_read = bytes - bytes_left
-                log.info("Waiting for %.2f/%.2f MB (%.2f%%, %.2f KBps)",
-                    bytes_left/1024.0/1024.0,
-                    bytes/1024.0/1024.0,
-                    100.0*bytes_left/bytes,
-                    (bytes_read - bu)/1024.0/dt)
+                log.info(
+                    "Waiting for %.2f/%.2f MB (%.2f%%, %.2f KBps)",
+                    bytes_left / 1024.0 / 1024.0,
+                    bytes / 1024.0 / 1024.0,
+                    100.0 * bytes_left / bytes,
+                    (bytes_read - bu) / 1024.0 / dt,
+                )
                 tu = time.time()
                 bu = bytes_read
 
@@ -225,72 +252,87 @@ def posey_cmd():
                 time.sleep(0.1)
 
         return bytes_read
-            
+
     # Send command.
     cmd = CommandMessage()
     cmd.message.ack = MessageAck.Expected
     expected_ack = MessageAck.OK
-    if args.command == 'noop':
+    if args.command == "noop":
         cmd.message.command = CommandType.NoOp
-    elif args.command == 'reboot':
+    elif args.command == "reboot":
         cmd.message.command = CommandType.Reboot
-    elif args.command == 'startrecording':
+    elif args.command == "startrecording":
         cmd.message.command = CommandType.StartCollecting
         cmd.message.payload = np.frombuffer(
-            dt.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z %z").encode('UTF-8'),
-            dtype='u1')
+            dt.datetime.now()
+            .astimezone()
+            .strftime("%Y-%m-%d %H:%M:%S %Z %z")
+            .encode("UTF-8"),
+            dtype="u1",
+        )
         expected_ack = MessageAck.Working
-        log.info("Data recording will start after flash erase. This may take up to a few minutes.")
-    elif args.command == 'flasherase':
+        log.info(
+            "Data recording will start after flash erase. This may take up to a few minutes."
+        )
+    elif args.command == "flasherase":
         cmd.message.command = CommandType.FullFlashErase
         expected_ack = MessageAck.Working
         log.info("A full flash erase may take up to a few minutes (typical 2m30s).")
-    elif (args.command == 'stoprecording'):
+    elif args.command == "stoprecording":
         cmd.message.command = CommandType.StopCollecting
-    elif (args.command == 'download') or (args.command == 'datasummary'):
+    elif (args.command == "download") or (args.command == "datasummary"):
         cmd.message.command = CommandType.GetDataSummary
     cmd.serialize()
     sensor.hil.send(cmd)
-    log.info(f'Sent init command for {args.command}: 0x{cmd.message.command:02x} {cmd.message.command_str()}')
+    log.info(
+        f"Sent init command for {args.command}: 0x{cmd.message.command:02x} {cmd.message.command_str()}"
+    )
 
     # Wait for ack.
     data = wait_for_ack()
 
-    if data['ack'] != expected_ack:
+    if data["ack"] != expected_ack:
         log.error(f"Bad ack returned after init: 0x{data['ack']:02x}")
-    elif args.command == 'flasherase':
-        log.info('Waiting for acknowledgement that flash erase completed...')
+    elif args.command == "flasherase":
+        log.info("Waiting for acknowledgement that flash erase completed...")
         data = wait_for_ack()
-        if data['ack'] != MessageAck.OK:
+        if data["ack"] != MessageAck.OK:
             log.error(f"Unexpected ack in response to flash erase: 0x{data['ack']:02x}")
-    elif args.command == 'startrecording':
-        log.info('Waiting for acknowledgement that recording started...')
+    elif args.command == "startrecording":
+        log.info("Waiting for acknowledgement that recording started...")
         data = wait_for_ack()
-        if data['ack'] != MessageAck.OK:
-            log.error(f"Unexpected ack in response to start recording: 0x{data['ack']:02x}")
-    elif args.command == 'datasummary':
+        if data["ack"] != MessageAck.OK:
+            log.error(
+                f"Unexpected ack in response to start recording: 0x{data['ack']:02x}"
+            )
+    elif args.command == "datasummary":
         data_summary = wait_for_datasummary()
         if data_summary is None:
             log.error("No DataSummary returned!")
-    elif args.command == 'download':
+    elif args.command == "download":
         data_summary = wait_for_datasummary()
         if data_summary is None:
             log.error("No DataSummary returned!")
         else:
-            bytes = data_summary['bytes']
-            log.info("Allocating download buffer for %2f MB...",
-                bytes/1024.0/1024.0)
-            download_buffer = np.empty(bytes, 'u1')
+            bytes = data_summary["bytes"]
+            log.info(
+                "Allocating download buffer for %2f MB...", bytes / 1024.0 / 1024.0
+            )
+            download_buffer = np.empty(bytes, "u1")
 
             cmd.message.command = CommandType.DownloadData
             cmd.serialize()
             sensor.hil.send(cmd)
-            log.info(f'Sent download command: 0x{cmd.message.command:02x} {cmd.message.command_str()}')
+            log.info(
+                f"Sent download command: 0x{cmd.message.command:02x} {cmd.message.command_str()}"
+            )
 
             # Wait on data summary and ack.
             data = wait_for_ack()
-            if data['ack'] != MessageAck.Working:
-                log.error(f"Unexpected ack in response to download: 0x{data['ack']:02x}")
+            if data["ack"] != MessageAck.Working:
+                log.error(
+                    f"Unexpected ack in response to download: 0x{data['ack']:02x}"
+                )
             else:
                 # Wait for download.
                 bytes_read = wait_for_download(download_buffer)
@@ -299,7 +341,9 @@ def posey_cmd():
 
                 fn = f"{dtnow}-{device_name.replace(' ', '')}-download.npz"
                 log.info("Dumping downloaded data to file: %s", fn)
-                np.savez(fn, summary=data_summary, data=download_buffer, allow_pickle=True)
+                np.savez(
+                    fn, summary=data_summary, data=download_buffer, allow_pickle=True
+                )
                 log.info("Done!")
 
     # elif args.command == 'record':
@@ -340,7 +384,7 @@ def posey_cmd():
 
     #     except:
     #         traceback.print_exc()
-        
+
     #     # Send stop command.
     #     cmd.message.command = CommandType.StopCollecting
     #     cmd.serialize()
@@ -355,6 +399,7 @@ def posey_cmd():
     log.info("Disconnecting sensor...")
     sensor.disconnect()
     sensor.hil.close()
+
 
 if __name__ == "__main__":
     posey_cmd()

@@ -6,10 +6,10 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'Posey Control'
-copyright = '2023, Anthony Wertz'
-author = 'Anthony Wertz'
-release = '1.2.0'
+project = "Posey Control"
+copyright = "2023, Anthony Wertz"
+author = "Anthony Wertz"
+release = "1.2.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -29,9 +29,8 @@ extensions = [
     # "ipython_with_reprs",
 ]
 
-templates_path = ['_templates']
+templates_path = ["_templates"]
 exclude_patterns = []
-
 
 
 # -- Options for HTML output -------------------------------------------------

@@ -3,21 +3,21 @@
 
 .. automodule:: poseyctrl
 
-   
-   
-   
 
-   
-   
-   
 
-   
-   
-   
 
-   
-   
-   
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -32,4 +32,3 @@
    poseyctrl.hil
    poseyctrl.patch
    poseyctrl.sensor
-
