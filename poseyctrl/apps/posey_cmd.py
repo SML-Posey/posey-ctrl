@@ -21,18 +21,17 @@ from pyposey import MessageAck
 from pyposey.control import CommandType, CommandMessage
 
 
-def confirm():
-    """
-    Ask user to enter Y or N (case-insensitive).
-    :return: True if the answer is Y.
-    :rtype: bool
-    """
-    answer = ""
-    while answer not in ["y", "n"]:
-        answer = input("Continue? [Y/N]? ").lower()
-    return answer == "y"
-
 def posey_cmd():
+    def confirm() -> bool:
+        """
+        Ask user to enter Y or N (case-insensitive).
+
+        :param return: True if the answer is Y.
+        """
+        answer = ""
+        while answer not in ["y", "n"]:
+            answer = input("Continue? [Y/N]? ").lower()
+        return answer == "y"
 
     # Process arguments.
     parser = argparse.ArgumentParser(

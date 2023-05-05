@@ -19,13 +19,6 @@ from adafruit_ble.characteristics.stream import StreamOut, StreamIn
 class UARTService(Service):
     """
     Provide UART-like functionality via the Nordic NUS service.
-
-    :param int timeout:  the timeout in seconds to wait
-      for the first character and between subsequent characters.
-    :param int buffer_size: buffer up to this many bytes.
-      If more bytes are received, older bytes will be discarded.
-
-    See ``examples/ble_uart_echo_test.py`` for a usage example.
     """
 
     # pylint: disable=no-member

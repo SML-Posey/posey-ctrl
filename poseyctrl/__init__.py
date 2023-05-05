@@ -1,4 +1,3 @@
-from logging import getLogger
 import os
 from sys import platform
 
