@@ -22,6 +22,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx_immaterial",
     "sphinx_immaterial.apidoc.python.apigen",
+    "sphinx.ext.githubpages",
     # "sphinx_design",
     # "IPython.sphinxext.ipython_console_highlighting",
     # "IPython.sphinxext.ipython_directive",
@@ -63,6 +64,7 @@ html_static_path = ["_static"]
 # default_role = "python"
 
 html_title = "Posey Control"
+html_show_sphinx = False
 
 # Sphinx Immaterial theme options
 html_theme_options = {
