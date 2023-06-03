@@ -20,6 +20,7 @@ class PoseyHILStats:
         self.last_update = self.start_time
         self.last_timestamp = 0
         self.last_Vbatt = 0
+        self.ble_throughput = 0
         self.delay = delay
 
         self.bytes = 0
@@ -28,11 +29,12 @@ class PoseyHILStats:
         self.imu = 0
         self.ble = 0
 
-    def add_task(self, timestamp, bytes, Vbatt):
+    def add_task(self, timestamp, bytes, Vbatt, ble_throughput=0):
         self.bytes += bytes
         self.task += 1
         self.last_timestamp = timestamp
         self.last_Vbatt = Vbatt / 255.0 * 4.2 + 3.2
+        self.ble_throughput = ble_throughput
 
     def add_datasummary(self):
         self.bytes += 15 + 3
@@ -60,7 +62,7 @@ class PoseyHILStats:
         if dt >= self.delay:
             batt_pct = (self.last_Vbatt - 3.3) / (4.2 - 3.3) * 100.0
             self.log.info(
-                f'RT: [{self.runtime()}] Batt: {self.last_Vbatt:.2f}V ({batt_pct:.0f}%) Rates: [{self.stats("T", self.task, dt)} {self.stats("I", self.imu, dt)} {self.stats("B", self.ble, dt, postfix="dps")} {self.stats("BW", self.bytes/1024.0, dt, postfix="KBps")}]'
+                f'RT: [{self.runtime()}] Batt: {self.last_Vbatt:.2f}V ({batt_pct:.0f}%) BLE: {self.ble_throughput} Rates: [{self.stats("T", self.task, dt)} {self.stats("I", self.imu, dt)} {self.stats("B", self.ble, dt, postfix="dps")} {self.stats("BW", self.bytes/1024.0, dt, postfix="KBps")}]'
             )
 
             self.bytes = 0
@@ -148,6 +150,7 @@ class PoseyHIL:
                     self.messages.taskwaist.message.t_start,
                     15 + 3,
                     self.messages.taskwaist.message.Vbatt,
+                    self.messages.taskwaist.message.ble_throughput,
                 )
                 self.messages.taskwaist.deserialize()
                 data = {
@@ -157,6 +160,7 @@ class PoseyHIL:
                     "invalid_checksum": self.messages.taskwaist.message.invalid_checksum,
                     "missed_deadline": self.messages.taskwaist.message.missed_deadline,
                     "Vbatt": self.messages.taskwaist.message.Vbatt,
+                    "ble_throughput": self.messages.taskwaist.message.ble_throughput,
                 }
             else:
                 self.log.error("Invalid TaskWaist checkum.")
