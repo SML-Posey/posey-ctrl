@@ -33,7 +33,7 @@ class PoseyHILStats:
         self.bytes += bytes
         self.task += 1
         self.last_timestamp = timestamp
-        self.last_Vbatt = Vbatt / 255.0 * 4.2 + 3.2
+        self.last_Vbatt = Vbatt
         self.ble_throughput = ble_throughput
 
     def add_datasummary(self):
@@ -139,6 +139,10 @@ class PoseyHIL:
     def flush(self):
         pass
 
+    @staticmethod
+    def Vbatt_counts_to_V(counts):
+        return counts / 255.0 * 4.2 + 3.2
+
     def process_message(self, time: dt.datetime, mid: int):
         sig = None
         data = None
@@ -146,10 +150,11 @@ class PoseyHIL:
         if mid == pyp.tasks.TaskWaistTelemetry.message_id:
             sig = "taskwaist"
             if self.messages.taskwaist.valid_checksum:
+                Vbatt = self.Vbatt_counts_to_V(self.messages.taskwaist.message.Vbatt)
                 self.stats.add_task(
                     self.messages.taskwaist.message.t_start,
                     15 + 3,
-                    self.messages.taskwaist.message.Vbatt,
+                    Vbatt,
                     self.messages.taskwaist.message.ble_throughput,
                 )
                 self.messages.taskwaist.deserialize()
@@ -159,7 +164,7 @@ class PoseyHIL:
                     "t_end": self.messages.taskwaist.message.t_end,
                     "invalid_checksum": self.messages.taskwaist.message.invalid_checksum,
                     "missed_deadline": self.messages.taskwaist.message.missed_deadline,
-                    "Vbatt": self.messages.taskwaist.message.Vbatt,
+                    "Vbatt": Vbatt,
                     "ble_throughput": self.messages.taskwaist.message.ble_throughput,
                 }
             else:
@@ -168,10 +173,11 @@ class PoseyHIL:
         elif mid == pyp.tasks.TaskWatchTelemetry.message_id:
             sig = "taskwatch"
             if self.messages.taskwatch.valid_checksum:
+                Vbatt = self.Vbatt_counts_to_V(self.messages.taskwatch.message.Vbatt)
                 self.stats.add_task(
                     self.messages.taskwatch.message.t_start,
                     12 + 3,
-                    self.messages.taskwatch.message.Vbatt,
+                    Vbatt,
                 )
                 self.messages.taskwatch.deserialize()
                 data = {
@@ -180,7 +186,7 @@ class PoseyHIL:
                     "t_end": self.messages.taskwatch.message.t_end,
                     "invalid_checksum": self.messages.taskwatch.message.invalid_checksum,
                     "missed_deadline": self.messages.taskwatch.message.missed_deadline,
-                    "Vbatt": self.messages.taskwatch.message.Vbatt,
+                    "Vbatt": Vbatt,
                 }
             else:
                 self.log.error("Invalid TaskWatch checkum.")
