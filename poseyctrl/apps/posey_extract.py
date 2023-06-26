@@ -10,6 +10,7 @@ import datetime
 import numpy as np
 from hexdump import hexdump
 from dateutil.parser import parse
+import pandas as pd
 
 from adafruit_ble import BLERadio
 from adafruit_ble.advertising.standard import Advertisement
@@ -183,5 +184,12 @@ def posey_extract():
 
     # Write binary files.
     for slot, data in flash_data.items():
+        log.info(f"Writing binary data to {prefix}{slot}.bin")
         with open(f"{prefix}{slot}.bin", "wb") as f:
             f.write(flash_data[slot].tobytes())
+
+    # Write RSSI.
+    log.info(f"Writing RSSI data to {prefix}rssi.csv")
+    fbdf = pd.DataFrame.from_dict(block_summaries)
+    fbdf.time *= 1.0e-3
+    fbdf.to_csv(f"{prefix}rssi.csv", index=False)
