@@ -266,7 +266,7 @@ def posey_cmd():
         cmd.message.payload = np.frombuffer(
             dt.datetime.now()
             .astimezone()
-            .strftime("%Y-%m-%d %H:%M:%S %Z %z")
+            .strftime("%Y-%m-%d %H:%M:%S %z")
             .encode("UTF-8"),
             dtype="u1",
         )
