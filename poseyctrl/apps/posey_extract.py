@@ -77,7 +77,7 @@ def posey_extract():
 
     # Extract the collection summary.
     sensor = summary["sensor"]
-    dt = parse(summary["datetime"])
+    dt = parse(summary["datetime"][:19])
     data_len = summary["bytes"]
     start_ms = summary["start_ms"]
     data_dt = (summary["end_ms"] - summary["start_ms"]) * 1.0e-3
